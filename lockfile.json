@@ -1,0 +1,16 @@
+{
+  "dependencies": [
+    {
+      "name": "fmt",
+      "package_name": "fmt",
+      "git_repository": "https://github.com/fmtlib/fmt.git",
+      "git_tag": "11.2.0"
+    },
+    {
+      "name": "nanobench",
+      "package_name": "nanobench",
+      "git_repository": "https://github.com/dssgabriel/nanobench.git",
+      "git_tag": "origin/feature/cache-perf-events"
+    },
+  ]
+}
