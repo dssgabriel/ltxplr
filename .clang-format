@@ -1,0 +1,36 @@
+Language: Cpp
+BasedOnStyle: LLVM
+
+# General
+ColumnLimit: 119
+TabWidth: 2
+IndentWidth: 2
+ContinuationIndentWidth: 2
+
+# Alignment
+PointerAlignment: Left
+QualifierAlignment: Left
+AlignAfterOpenBracket: BlockIndent
+AlignConsecutiveAssignments: Consecutive
+
+# Breaking
+AlwaysBreakTemplateDeclarations: true
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: Inline
+AllowShortEnumsOnASingleLine: false
+BinPackArguments: false
+BinPackParameters: OnePerLine
+BreakBeforeBinaryOperators: All
+BreakConstructorInitializers: AfterColon
+PackConstructorInitializers: CurrentLine
+# BreakBeforeTemplateCloser: true # clang-format-21
+
+# Requires
+IndentRequiresClause: true
+RequiresClausePosition: OwnLine
+SpaceBeforeParens: Custom
+SpaceBeforeParensOptions:
+ AfterRequiresInClause: true

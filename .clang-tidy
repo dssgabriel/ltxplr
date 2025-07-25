@@ -1,0 +1,27 @@
+Checks:
+  '
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-arguments,
+  clang-analyzer-*,
+  concurrency-*,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-magic-numbers,
+  google-*,
+  hicpp-*,
+  llvm-*,
+  -llvm-header-guard,
+  misc-*,
+  -misc-include-cleaner,
+  -misc-const-correctness,
+  modernize-*,
+  performance-*,
+  portability-*,
+  -readability-identifier-*,
+  '
+HeaderFilterRegex: '.*/layout_tiled/(include|src|example|tests)/.*\.(hpp)$'
+WarningsAsErrors: 'clang*'
+FormatStyle: file
+
+CheckOptions:
+  - { key: readability-identifier-naming.MemberSuffix, value: _ }
