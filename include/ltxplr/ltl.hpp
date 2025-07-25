@@ -299,23 +299,6 @@ struct ltl {
       return offset;
     }
 
-    template <class... Indices>
-    constexpr auto operator()(Indices... idx) const noexcept -> index_type
-      requires (
-        (sizeof...(Indices) == extents_type::rank()) and (std::is_convertible_v<Indices, index_type> and ...)
-        and (std::is_nothrow_constructible_v<index_type, Indices> and ...)
-      )
-    {
-      constexpr rank_type rank = extents_type::rank();
-      std::array<index_type, extents_type::rank()> idx_arr{static_cast<index_type>(idx)...};
-
-      return [&]<size_t... Pos>(std::index_sequence<Pos...>) {
-        index_type offset = 0;
-        ((offset = idx_arr[rank - 1 - Pos] + extents_.extent(rank - 1 - Pos) * offset), ...);
-        return offset;
-      }(std::make_index_sequence<rank>());
-    }
-
   private:
     extents_type extents_;
   };
