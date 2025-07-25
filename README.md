@@ -1,11 +1,10 @@
-# ltxplr
-
-Exploring various implementation of multi-dimensional offset computations for tiled layouts.
+# LT-XPLR: Exploring tiled multi-dimensional offset computations for performance
 
 ### Requirements
 
 - CMake 3.25+
-- LLVM clang v19+ (w/ libc++)
+- LLVM clang++ v19+
+- LLVM libc++ v18+
 
 ### Build
 
@@ -30,7 +29,7 @@ cmake --build <BUILD_DIR>
 
 Run with a given number of dimensions:
 ```sh
-./<BUILD_DIR>/bin/main <DIM>
+./<BUILD_DIR>/benchmarks/main <DIM>
 ```
 
 Supported dimensions (as of 2025-06-25): `2`, `3`, `4` (partial)
