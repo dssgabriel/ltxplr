@@ -33,4 +33,4 @@ Run with a given number of dimensions:
 ./<BUILD_DIR>/bin/main <DIM>
 ```
 
-Supported dimensions (as of 2025-06-25): `2`, `3`
+Supported dimensions (as of 2025-06-25): `2`, `3`, `4` (partial)
