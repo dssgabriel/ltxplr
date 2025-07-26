@@ -28,7 +28,7 @@ auto check(I... idxs) -> void
   fmt::println("to_off_ed  ({}) = {}", idx_arr, map.tile_outer_offset_fold_direct(idxs...));
   fmt::println("to_off_eds ({}) = {}", idx_arr, map.tile_outer_offset_fold_direct_strides(idxs...));
   fmt::println("to_off_ep  ({}) = {}", idx_arr, map.tile_outer_offset_fold_prep(idxs...));
-  fmt::println("to_off_eps ({}) = {}", idx_arr, map.tile_outer_offset_fold_prep_strides(idxs...));
+  fmt::println("to_off_eps ({}) = {}\n", idx_arr, map.tile_outer_offset_fold_prep_strides(idxs...));
 
   fmt::println("ti_off_ld  ({}) = {}", idx_arr, map.tile_inner_offset_for_direct(idxs...));
   fmt::println("ti_off_lds ({}) = {}", idx_arr, map.tile_inner_offset_for_direct_strides(idxs...));
@@ -37,10 +37,12 @@ auto check(I... idxs) -> void
   fmt::println("ti_off_ed  ({}) = {}", idx_arr, map.tile_inner_offset_fold_direct(idxs...));
   fmt::println("ti_off_eds ({}) = {}", idx_arr, map.tile_inner_offset_fold_direct_strides(idxs...));
   fmt::println("ti_off_ep  ({}) = {}", idx_arr, map.tile_inner_offset_fold_prep(idxs...));
-  fmt::println("ti_off_eps ({}) = {}", idx_arr, map.tile_inner_offset_fold_prep_strides(idxs...));
+  fmt::println("ti_off_eps ({}) = {}\n", idx_arr, map.tile_inner_offset_fold_prep_strides(idxs...));
 
-  fmt::println("off_l       ({}) = {}", idx_arr, map.offset_for(idxs...));
-  fmt::println("off_e       ({}) = {}", idx_arr, map.offset_fold(idxs...));
+  fmt::println("toff_e     ({}) = {}\n", idx_arr, map.tiled_offset_fold_direct(idxs...));
+
+  fmt::println("off_l      ({}) = {}", idx_arr, map.offset_for(idxs...));
+  fmt::println("off_e      ({}) = {}\n", idx_arr, map.offset_fold(idxs...));
 }
 
 template <class Exts, size_t... TExts, class... I>
@@ -84,8 +86,9 @@ auto eval_2d(I... idxs) -> void
   b2.run("ltl_offset fold direct strides", [&]() { nb::doNotOptimizeAway(map.tile_outer_offset_fold_direct_strides(idxs...) + map.tile_inner_offset_fold_direct_strides(idxs...)); });
   b2.run("ltl_offset fold prep", [&]() { nb::doNotOptimizeAway(map.tile_outer_offset_fold_prep(idxs...) + map.tile_inner_offset_fold_prep(idxs...)); });
   b2.run("ltl_offset fold prep strides", [&]() { nb::doNotOptimizeAway(map.tile_outer_offset_fold_prep_strides(idxs...) + map.tile_inner_offset_fold_prep_strides(idxs...)); });
-  b2.run("offset for (Kokkos impl)", [&]() { nb::doNotOptimizeAway(map.offset_for(0, 0)); });
-  b2.run("offset fold (LLVM impl)", [&]() { nb::doNotOptimizeAway(map.offset_fold(0, 0)); });
+  b2.run("tiled_offset fold direct", [&]() { nb::doNotOptimizeAway(map.tiled_offset_fold_direct(idxs...)); });
+  b2.run("offset for (Kokkos impl)", [&]() { nb::doNotOptimizeAway(map.offset_for(idxs...)); });
+  b2.run("offset fold (LLVM impl)", [&]() { nb::doNotOptimizeAway(map.offset_fold(idxs...)); });
   // clang-format on
 
   nb::Bench b3;
@@ -364,6 +367,7 @@ auto eval_3d(I... idxs) -> void
   b2.run("ltl_offset fold direct strides", [&]() { nb::doNotOptimizeAway(map.tile_outer_offset_fold_direct_strides(idxs...) + map.tile_inner_offset_fold_direct_strides(idxs...)); });
   b2.run("ltl_offset fold prep", [&]() { nb::doNotOptimizeAway(map.tile_outer_offset_fold_prep(idxs...) + map.tile_inner_offset_fold_prep(idxs...)); });
   b2.run("ltl_offset fold prep strides", [&]() { nb::doNotOptimizeAway(map.tile_outer_offset_fold_prep_strides(idxs...) + map.tile_inner_offset_fold_prep_strides(idxs...)); });
+  b2.run("tiled_offset fold direct", [&]() { nb::doNotOptimizeAway(map.tiled_offset_fold_direct(idxs...)); });
   b2.run("offset for (Kokkos impl)", [&]() { nb::doNotOptimizeAway(map.offset_for(idxs...)); });
   b2.run("offset fold (LLVM impl)", [&]() { nb::doNotOptimizeAway(map.offset_fold(idxs...)); });
   // clang-format on
@@ -705,6 +709,7 @@ auto eval_4d(I... idxs) -> void
   b2.run("ltl_offset fold direct strides", [&]() { nb::doNotOptimizeAway(map.tile_outer_offset_fold_direct_strides(idxs...) + map.tile_inner_offset_fold_direct_strides(idxs...)); });
   b2.run("ltl_offset fold prep", [&]() { nb::doNotOptimizeAway(map.tile_outer_offset_fold_prep(idxs...) + map.tile_inner_offset_fold_prep(idxs...)); });
   b2.run("ltl_offset fold prep strides", [&]() { nb::doNotOptimizeAway(map.tile_outer_offset_fold_prep_strides(idxs...) + map.tile_inner_offset_fold_prep_strides(idxs...)); });
+  b2.run("tiled_offset fold direct", [&]() { nb::doNotOptimizeAway(map.tiled_offset_fold_direct(idxs...)); });
   b2.run("offset for (Kokkos impl)", [&]() { nb::doNotOptimizeAway(map.offset_for(idxs...)); });
   b2.run("offset fold (LLVM impl)", [&]() { nb::doNotOptimizeAway(map.offset_fold(idxs...)); });
   // clang-format on
@@ -746,7 +751,7 @@ auto main(int argc, char* argv[]) -> int {
     break;
   case 4:
     using exts4 = std::extents<size_t, 100, 100, 100, 100>;
-    check<exts4, 10, 10, 10, 10>(1, 2, 4, 8);
+    check<exts4, 10, 10, 10, 10>(16, 32, 64, 8);
     eval_4d<exts4, 10, 10, 10, 10>(1, 2, 4, 8);
     break;
   case 5:
