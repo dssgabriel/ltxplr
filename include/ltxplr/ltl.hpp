@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstddef>
+#include <tuple>
 
 namespace ltxplr {
 
@@ -47,8 +48,9 @@ struct ltl {
       return extents_.extent(ext) / textent<ext>();
     }
 
+  private:
     template <size_t... I>
-    [[nodiscard]] constexpr auto make_strides_outer(std::index_sequence<I...>) const noexcept
+    [[nodiscard]] constexpr auto make_strides_outer([[maybe_unused]] std::index_sequence<I...> _) const noexcept
       -> std::array<index_type, sizeof...(I)> {
       std::array<index_type, sizeof...(I)> strides{};
       index_type stride = 1;
@@ -57,7 +59,7 @@ struct ltl {
     }
 
     template <size_t... I>
-    [[nodiscard]] constexpr auto make_strides_inner(std::index_sequence<I...>) const noexcept
+    [[nodiscard]] static constexpr auto make_strides_inner([[maybe_unused]] std::index_sequence<I...> _) noexcept
       -> std::array<index_type, sizeof...(I)> {
       std::array<index_type, sizeof...(I)> strides{};
       index_type stride = 1;
@@ -65,84 +67,32 @@ struct ltl {
       return strides;
     }
 
-    template <class... Indices>
-      requires (
-        (sizeof...(Indices) == extents_type::rank()) and (std::is_convertible_v<Indices, index_type> and ...)
-        and (std::is_nothrow_constructible_v<index_type, Indices> and ...)
-      )
-    constexpr auto offset_fold(Indices... idx) const noexcept -> index_type {
-      constexpr rank_type R = extents_type::rank();
-      std::array<index_type, R> idx_arr{static_cast<index_type>(idx)...};
-
-      return [&]<rank_type... Pos>(std::index_sequence<Pos...>) {
-        index_type offset = 0;
-        ((offset = idx_arr[R - 1 - Pos] + extents_.extent(R - 1 - Pos) * offset), ...);
-        return offset;
-      }(std::make_index_sequence<R>());
-    }
-
+  public:
     template <class... Idxs>
-    constexpr auto offset_for(Idxs... idxs) const noexcept -> index_type {
+    constexpr auto tile_outer_offset_for_direct(Idxs... idxs) const noexcept -> index_type {
       constexpr rank_type R = extents_type::rank();
       std::array<index_type, R> idx_arr{static_cast<index_type>(idxs)...};
 
       index_type offset = 0;
       index_type stride = 1;
       for (rank_type i = 0; i < R; ++i) {
-        offset += idx_arr[i] * stride;
-        stride *= extents_.extent(i);
+        offset += idx_arr[i] / textent(i) * stride;
+        stride *= ntiles_in_extent(i);
       }
-      return offset;
+      return offset * tile_size();
     }
 
     template <class... Idxs>
-    constexpr auto tile_outer_offset_fold_prep(Idxs... idxs) const noexcept -> index_type {
-      constexpr rank_type R = extents_type::rank();
-      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs) / static_cast<index_type>(TileExtents)...};
-
-      return [&]<rank_type... I>(std::index_sequence<I...>) {
-        index_type offset = 0;
-        ((offset = idx_arr[R - 1 - I] + ntiles_in_extent(R - 1 - I) * offset), ...);
-        return offset;
-      }(std::make_index_sequence<R>())
-             * tile_size();
-    }
-
-    template <class... Idxs>
-    constexpr auto tile_outer_offset_fold_prep_strides(Idxs... idxs) const noexcept -> index_type {
-      constexpr rank_type R             = extents_type::rank();
-      std::array<index_type, R> strides = make_strides_outer(std::make_index_sequence<R>{});
-      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs) / static_cast<index_type>(TileExtents)...};
-
-      return [&]<rank_type... I>(std::index_sequence<I...>) {
-        return ((idx_arr[R - 1 - I] * strides[R - 1 - I]) + ...);
-      }(std::make_index_sequence<R>())
-             * tile_size();
-    }
-
-    template <class... Idxs>
-    constexpr auto tile_outer_offset_fold_direct(Idxs... idxs) const noexcept -> index_type {
-      constexpr rank_type R = extents_type::rank();
-      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs)...};
-
-      return [&]<rank_type... I>(std::index_sequence<I...>) {
-        index_type offset = 0;
-        ((offset = idx_arr[R - 1 - I] / TileExtents...[R - 1 - I] + ntiles_in_extent(R - 1 - I) * offset), ...);
-        return offset;
-      }(std::make_index_sequence<R>())
-             * tile_size();
-    }
-
-    template <class... Idxs>
-    constexpr auto tile_outer_offset_fold_direct_strides(Idxs... idxs) const noexcept -> index_type {
+    constexpr auto tile_outer_offset_for_direct_strides(Idxs... idxs) const noexcept -> index_type {
       constexpr rank_type R             = extents_type::rank();
       std::array<index_type, R> strides = make_strides_outer(std::make_index_sequence<R>{});
       std::array<index_type, R> idx_arr{static_cast<index_type>(idxs)...};
 
-      return [&]<rank_type... I>(std::index_sequence<I...>) {
-        return ((idx_arr[R - 1 - I] / TileExtents...[R - 1 - I] * strides[R - 1 - I]) + ...);
-      }(std::make_index_sequence<R>())
-             * tile_size();
+      index_type offset = 0;
+      for (rank_type i = 0; i < R; ++i) {
+        offset += idx_arr[i] / textent(i) * strides[i];
+      }
+      return offset * tile_size();
     }
 
     template <class... Idxs>
@@ -173,76 +123,82 @@ struct ltl {
     }
 
     template <class... Idxs>
-    constexpr auto tile_outer_offset_for_direct(Idxs... idxs) const noexcept -> index_type {
+    constexpr auto tile_outer_offset_fold_direct(Idxs... idxs) const noexcept -> index_type {
+      constexpr rank_type R = extents_type::rank();
+      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs)...};
+
+      return [&]<rank_type... I>(std::index_sequence<I...>) {
+        index_type offset = 0;
+        ((offset = idx_arr[R - 1 - I] / TileExtents...[R - 1 - I] + ntiles_in_extent(R - 1 - I) * offset), ...);
+        return offset;
+      }(std::make_index_sequence<R>())
+             * tile_size();
+    }
+
+    template <class... Idxs>
+    constexpr auto tile_outer_offset_fold_direct_strides(Idxs... idxs) const noexcept -> index_type {
+      constexpr rank_type R             = extents_type::rank();
+      std::array<index_type, R> strides = make_strides_outer(std::make_index_sequence<R>{});
+      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs)...};
+
+      return [&]<rank_type... I>(std::index_sequence<I...>) {
+        return ((idx_arr[R - 1 - I] / TileExtents...[R - 1 - I] * strides[R - 1 - I]) + ...);
+      }(std::make_index_sequence<R>())
+             * tile_size();
+    }
+
+    template <class... Idxs>
+    constexpr auto tile_outer_offset_fold_prep(Idxs... idxs) const noexcept -> index_type {
+      constexpr rank_type R = extents_type::rank();
+      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs) / static_cast<index_type>(TileExtents)...};
+
+      return [&]<rank_type... I>(std::index_sequence<I...>) {
+        index_type offset = 0;
+        ((offset = idx_arr[R - 1 - I] + ntiles_in_extent(R - 1 - I) * offset), ...);
+        return offset;
+      }(std::make_index_sequence<R>())
+             * tile_size();
+    }
+
+    template <class... Idxs>
+    constexpr auto tile_outer_offset_fold_prep_strides(Idxs... idxs) const noexcept -> index_type {
+      constexpr rank_type R             = extents_type::rank();
+      std::array<index_type, R> strides = make_strides_outer(std::make_index_sequence<R>{});
+      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs) / static_cast<index_type>(TileExtents)...};
+
+      return [&]<rank_type... I>(std::index_sequence<I...>) {
+        return ((idx_arr[R - 1 - I] * strides[R - 1 - I]) + ...);
+      }(std::make_index_sequence<R>())
+             * tile_size();
+    }
+
+    // -- inner --
+
+    template <class... Idxs>
+    constexpr auto tile_inner_offset_for_direct(Idxs... idxs) const noexcept -> index_type {
       constexpr rank_type R = extents_type::rank();
       std::array<index_type, R> idx_arr{static_cast<index_type>(idxs)...};
 
       index_type offset = 0;
       index_type stride = 1;
       for (rank_type i = 0; i < R; ++i) {
-        offset += idx_arr[i] / textent(i) * stride;
-        stride *= ntiles_in_extent(i);
+        offset += idx_arr[i] % textent(i) * stride;
+        stride *= textent(i);
       }
-      return offset * tile_size();
+      return offset;
     }
 
     template <class... Idxs>
-    constexpr auto tile_outer_offset_for_direct_strides(Idxs... idxs) const noexcept -> index_type {
+    constexpr auto tile_inner_offset_for_direct_strides(Idxs... idxs) const noexcept -> index_type {
       constexpr rank_type R             = extents_type::rank();
-      std::array<index_type, R> strides = make_strides_outer(std::make_index_sequence<R>{});
+      std::array<index_type, R> strides = make_strides_inner(std::make_index_sequence<R>{});
       std::array<index_type, R> idx_arr{static_cast<index_type>(idxs)...};
 
       index_type offset = 0;
       for (rank_type i = 0; i < R; ++i) {
-        offset += idx_arr[i] / textent(i) * strides[i];
+        offset += idx_arr[i] % textent(i) * strides[i];
       }
-      return offset * tile_size();
-    }
-
-    template <class... Idxs>
-    constexpr auto tile_inner_offset_fold_prep(Idxs... idxs) const noexcept -> index_type {
-      constexpr rank_type R = extents_type::rank();
-      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs) % static_cast<index_type>(TileExtents)...};
-
-      return [&]<rank_type... I>(std::index_sequence<I...>) {
-        index_type offset = 0;
-        ((offset = idx_arr[R - 1 - I] + textent<R - 1 - I>() * offset), ...);
-        return offset;
-      }(std::make_index_sequence<R>());
-    }
-
-    template <class... Idxs>
-    constexpr auto tile_inner_offset_fold_prep_strides(Idxs... idxs) const noexcept -> index_type {
-      constexpr rank_type R             = extents_type::rank();
-      std::array<index_type, R> strides = make_strides_inner(std::make_index_sequence<R>{});
-      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs) % static_cast<index_type>(TileExtents)...};
-
-      return [&]<rank_type... I>(std::index_sequence<I...>) {
-        return ((idx_arr[R - 1 - I] * strides[R - 1 - I]) + ...);
-      }(std::make_index_sequence<R>());
-    }
-
-    template <class... Idxs>
-    constexpr auto tile_inner_offset_fold_direct(Idxs... idxs) const noexcept -> index_type {
-      constexpr rank_type R = extents_type::rank();
-      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs)...};
-
-      return [&]<rank_type... I>(std::index_sequence<I...>) {
-        index_type offset = 0;
-        ((offset = idx_arr[R - 1 - I] % TileExtents...[R - 1 - I] + textent<R - 1 - I>() * offset), ...);
-        return offset;
-      }(std::make_index_sequence<R>());
-    }
-
-    template <class... Idxs>
-    constexpr auto tile_inner_offset_fold_direct_strides(Idxs... idxs) const noexcept -> index_type {
-      constexpr rank_type R             = extents_type::rank();
-      std::array<index_type, R> strides = make_strides_inner(std::make_index_sequence<R>{});
-      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs)...};
-
-      return [&]<rank_type... I>(std::index_sequence<I...>) {
-        return ((idx_arr[R - 1 - I] % TileExtents...[R - 1 - I] * strides[R - 1 - I]) + ...);
-      }(std::make_index_sequence<R>());
+      return offset;
     }
 
     template <class... Idxs>
@@ -273,28 +229,92 @@ struct ltl {
     }
 
     template <class... Idxs>
-    constexpr auto tile_inner_offset_for_direct(Idxs... idxs) const noexcept -> index_type {
+    constexpr auto tile_inner_offset_fold_direct(Idxs... idxs) const noexcept -> index_type {
+      constexpr rank_type R = extents_type::rank();
+      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs)...};
+
+      return [&]<rank_type... I>(std::index_sequence<I...>) {
+        index_type offset = 0;
+        ((offset = idx_arr[R - 1 - I] % TileExtents...[R - 1 - I] + textent<R - 1 - I>() * offset), ...);
+        return offset;
+      }(std::make_index_sequence<R>());
+    }
+
+    template <class... Idxs>
+    constexpr auto tile_inner_offset_fold_direct_strides(Idxs... idxs) const noexcept -> index_type {
+      constexpr rank_type R             = extents_type::rank();
+      std::array<index_type, R> strides = make_strides_inner(std::make_index_sequence<R>{});
+      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs)...};
+
+      return [&]<rank_type... I>(std::index_sequence<I...>) {
+        return ((idx_arr[R - 1 - I] % TileExtents...[R - 1 - I] * strides[R - 1 - I]) + ...);
+      }(std::make_index_sequence<R>());
+    }
+
+    template <class... Idxs>
+    constexpr auto tile_inner_offset_fold_prep(Idxs... idxs) const noexcept -> index_type {
+      constexpr rank_type R = extents_type::rank();
+      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs) % static_cast<index_type>(TileExtents)...};
+
+      return [&]<rank_type... I>(std::index_sequence<I...>) {
+        index_type offset = 0;
+        ((offset = idx_arr[R - 1 - I] + textent<R - 1 - I>() * offset), ...);
+        return offset;
+      }(std::make_index_sequence<R>());
+    }
+
+    template <class... Idxs>
+    constexpr auto tile_inner_offset_fold_prep_strides(Idxs... idxs) const noexcept -> index_type {
+      constexpr rank_type R                       = extents_type::rank();
+      constexpr std::array<index_type, R> strides = make_strides_inner(std::make_index_sequence<R>{});
+      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs) % static_cast<index_type>(TileExtents)...};
+
+      return [&]<rank_type... I>(std::index_sequence<I...>) {
+        return ((idx_arr[R - 1 - I] * strides[R - 1 - I]) + ...);
+      }(std::make_index_sequence<R>());
+    }
+
+    template <class... Idxs>
+    constexpr auto tiled_offset_fold_direct(Idxs... idxs) const noexcept -> index_type {
+      constexpr rank_type R = extents_type::rank();
+      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs)...};
+
+      const auto [outer, inner] = [&]<rank_type... I>(std::index_sequence<I...>) {
+        index_type outer = 0;
+        index_type inner = 0;
+        ((outer = idx_arr[R - 1 - I] / TileExtents...[R - 1 - I] + ntiles_in_extent<R - 1 - I>() * outer), ...);
+        ((inner = idx_arr[R - 1 - I] % TileExtents...[R - 1 - I] + textent<R - 1 - I>() * inner), ...);
+        return std::tuple<index_type, index_type>{outer, inner};
+      }(std::make_index_sequence<R>());
+      return outer * tile_size() + inner;
+    }
+
+    template <class... Idxs>
+      requires (
+        (sizeof...(Idxs) == extents_type::rank()) and (std::is_convertible_v<Idxs, index_type> and ...)
+        and (std::is_nothrow_constructible_v<index_type, Idxs> and ...)
+      )
+    constexpr auto offset_fold(Idxs... idx) const noexcept -> index_type {
+      constexpr rank_type R = extents_type::rank();
+      std::array<index_type, R> idx_arr{static_cast<index_type>(idx)...};
+
+      return [&]<rank_type... Pos>(std::index_sequence<Pos...>) {
+        index_type offset = 0;
+        ((offset = idx_arr[R - 1 - Pos] + extents_.extent(R - 1 - Pos) * offset), ...);
+        return offset;
+      }(std::make_index_sequence<R>());
+    }
+
+    template <class... Idxs>
+    constexpr auto offset_for(Idxs... idxs) const noexcept -> index_type {
       constexpr rank_type R = extents_type::rank();
       std::array<index_type, R> idx_arr{static_cast<index_type>(idxs)...};
 
       index_type offset = 0;
       index_type stride = 1;
       for (rank_type i = 0; i < R; ++i) {
-        offset += idx_arr[i] % textent(i) * stride;
-        stride *= textent(i);
-      }
-      return offset;
-    }
-
-    template <class... Idxs>
-    constexpr auto tile_inner_offset_for_direct_strides(Idxs... idxs) const noexcept -> index_type {
-      constexpr rank_type R             = extents_type::rank();
-      std::array<index_type, R> strides = make_strides_inner(std::make_index_sequence<R>{});
-      std::array<index_type, R> idx_arr{static_cast<index_type>(idxs)...};
-
-      index_type offset = 0;
-      for (rank_type i = 0; i < R; ++i) {
-        offset += idx_arr[i] % textent(i) * strides[i];
+        offset += idx_arr[i] * stride;
+        stride *= extents_.extent(i);
       }
       return offset;
     }
