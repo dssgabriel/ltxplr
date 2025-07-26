@@ -5,5 +5,6 @@
 #define INCLUDED_LTXPLR_LTXPLR
 
 #include <ltxplr/ltl.hpp>
+#include <ltxplr/rtr.hpp>
 
 #endif // INCLUDED_LTXPLR_LTXPLR

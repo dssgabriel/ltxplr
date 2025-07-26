@@ -6,5 +6,5 @@ target_sources(
   INTERFACE
     FILE_SET HEADERS
     BASE_DIRS ${CMAKE_SOURCE_DIR}/include
-    FILES ltxplr.hpp ltl.hpp
+    FILES ltxplr.hpp ltl.hpp rtr.hpp
 )
