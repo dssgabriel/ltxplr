@@ -27,9 +27,11 @@ cmake --build <BUILD_DIR>
 
 ### Execute
 
-Run with a given number of dimensions:
+Run on a given layout, with a given number of dimensions:
 ```sh
-./<BUILD_DIR>/benchmarks/main <DIM>
+./<BUILD_DIR>/benchmarks/<LAYOUT> <DIM>
 ```
 
-Supported dimensions (as of 2025-06-25): `2`, `3`, `4` (partial)
+Supported layouts (as of 2025-07-29): `ltl`, `rtr` 
+
+Supported dimensions (as of 2025-07-25): `2`, `3`, `4` (partial)
